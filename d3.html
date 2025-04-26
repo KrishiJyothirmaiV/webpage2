@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>
+      Interactive Player Dashboard and D3 Visualizations
+    </title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+      body {
+        font-family: 'Segoe UI', sans-serif;
+        margin: 0;
+        background: #f8f8f8;
+      }
+
+      .header {
+        background-color: #3f51b5;
+        padding: 15px;
+        color: white;
+        text-align: center;
+        font-size: 20px;
+      }
+
+      .stats {
+        display: flex;
+        justify-content: space-around;
+        background: white;
+        padding: 20px;
+        font-size: 18px;
+        font-weight: bold;
+        border-bottom: 2px solid #eee;
+      }
+
+      .stat-card {
+        text-align: center;
+      }
+
+      .controls {
+        padding: 15px;
+        text-align: center;
+        background: #ffffff;
+        border-bottom: 1px solid #ddd;
+      }
+
+      .controls select {
+        font-size: 14px;
+        padding: 6px 12px;
+      }
+
+      .dashboard {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px;
+        padding: 20px;
+      }
+
+      .chart {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 0 8px #ccc;
+        padding: 10px;
+      }
+
+      .chart svg {
+        display: block;
+        margin: auto;
+      }
+
+      .tooltip {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      Interactive Player Dashboard and D3 Visualizations
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        Total Players<br /><span id="totalPlayers">0</span>
+      </div>
+      <div class="stat-card">
+        Average Overall<br /><span id="avgOverall">0</span>
+      </div>
+      <div class="stat-card">
+        Total Clubs<br /><span id="totalClubs">0</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label><strong>Select Nationality:</strong></label>
+      <select id="nationalitySelect">
+        <option value="All">All</option>
+      </select>
+    </div>
+
+    <div class="dashboard">
+      <div class="chart" id="bar">
+        <h3>Top Clubs by Average Overall</h3>
+      </div>
+      <div class="chart" id="pie">
+        <h3>Top Clubs by Total Value</h3>
+      </div>
+      <div class="chart" id="histogram">
+        <h3>Age Distribution</h3>
+      </div>
+      <div class="chart" id="bubble">
+        <h3>Wage vs Potential</h3>
+      </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+      const tooltip = d3.select('#tooltip');
+
+      d3.csv(
+        'https://raw.githubusercontent.com/KrishiJyothirmaiV/dataset/main/cleaned_player_data.csv',
+      ).then((data) => {
+        data.forEach((d) => {
+          d.Age = +d.Age;
+          d.Overall = +d.Overall;
+          d.Potential = +d.Potential;
+          d.Wage = +d.Wage;
+          d.Value = +d.Value;
+        });
+
+        const nationalitySet = Array.from(
+          new Set(data.map((d) => d.Nationality)),
+        ).sort();
+        nationalitySet.forEach((n) => {
+          d3.select('#nationalitySelect')
+            .append('option')
+            .attr('value', n)
+            .text(n);
+        });
+
+        function update(nationality) {
+          const filtered =
+            nationality === 'All'
+              ? data
+              : data.filter(
+                  (d) => d.Nationality === nationality,
+                );
+
+          d3.select('#totalPlayers').text(filtered.length);
+          d3.select('#avgOverall').text(
+            (
+              d3.mean(filtered, (d) => d.Overall) || 0
+            ).toFixed(1),
+          );
+          d3.select('#totalClubs').text(
+            new Set(filtered.map((d) => d.Club)).size,
+          );
+
+          // Chart sizes
+          const w = 400,
+            h = 300,
+            m = 40;
+          ['bar', 'pie', 'histogram', 'bubble'].forEach(
+            (id) =>
+              d3
+                .select('#' + id)
+                .selectAll('svg')
+                .remove(),
+          );
+
+          // BAR CHART
+          const barSvg = d3
+            .select('#bar')
+            .append('svg')
+            .attr('width', w)
+            .attr('height', h);
+          const topClubs = d3
+            .rollups(
+              filtered,
+              (v) => d3.mean(v, (d) => d.Overall),
+              (d) => d.Club,
+            )
+            .sort((a, b) => d3.descending(a[1], b[1]))
+            .slice(0, 10);
+          const x = d3
+            .scaleBand()
+            .domain(topClubs.map((d) => d[0]))
+            .range([m, w - m])
+            .padding(0.2);
+          const y = d3
+            .scaleLinear()
+            .domain([0, d3.max(topClubs, (d) => d[1])])
+            .range([h - m, m]);
+          barSvg
+            .append('g')
+            .attr('transform', `translate(0,${h - m})`)
+            .call(d3.axisBottom(x))
+            .selectAll('text')
+            .attr('transform', 'rotate(-25)')
+            .style('text-anchor', 'end');
+
+          barSvg
+            .append('text')
+            .attr('x', w / 2)
+            .attr('y', h - 5)
+            .attr('text-anchor', 'middle')
+            .text('Club Name');
+
+          barSvg
+            .append('text')
+            .attr('transform', 'rotate(-90)')
+            .attr('y', 15)
+            .attr('x', -h / 2)
+            .attr('text-anchor', 'middle')
+            .text('Average Overall');
+
+          barSvg
+            .append('g')
+            .attr('transform', `translate(${m},0)`)
+            .call(d3.axisLeft(y));
+          barSvg
+            .selectAll('rect')
+            .data(topClubs)
+            .join('rect')
+            .attr('x', (d) => x(d[0]))
+            .attr('y', (d) => y(d[1]))
+            .attr('width', x.bandwidth())
+            .attr('height', (d) => h - m - y(d[1]))
+            .attr('fill', '#4caf50')
+            .on('mouseover', (e, d) =>
+              showTip(
+                `${d[0]}<br>Avg: ${d[1].toFixed(1)}`,
+                e,
+              ),
+            )
+            .on('mouseout', hideTip);
+
+          // PIE CHART
+          const pieSvg = d3
+            .select('#pie')
+            .append('svg')
+            .attr('width', w)
+            .attr('height', h);
+          const pieData = d3
+            .rollups(
+              filtered,
+              (v) => d3.sum(v, (d) => d.Value),
+              (d) => d.Club,
+            )
+            .sort((a, b) => d3.descending(a[1], b[1]))
+            .slice(0, 8);
+          const arc = d3
+            .arc()
+            .innerRadius(0)
+            .outerRadius(100);
+          const pie = d3.pie().value((d) => d[1]);
+          const g = pieSvg
+            .append('g')
+            .attr(
+              'transform',
+              `translate(${w / 2},${h / 2})`,
+            );
+          const color = d3
+            .scaleOrdinal()
+            .domain(pieData.map((d) => d[0]))
+            .range(d3.schemeSet3);
+          g.selectAll('path')
+            .data(pie(pieData))
+            .join('path')
+            .attr('d', arc)
+            .attr('fill', (d) => color(d.data[0]))
+            .on('mouseover', (e, d) =>
+              showTip(
+                `${d.data[0]}<br>Total: €${Math.round(d.data[1])}`,
+                e,
+              ),
+            )
+            .on('mouseout', hideTip);
+
+          // HISTOGRAM
+          const histSvg = d3
+            .select('#histogram')
+            .append('svg')
+            .attr('width', w)
+            .attr('height', h);
+          const ageBins = d3
+            .bin()
+            .domain([15, 45])
+            .thresholds(10)(filtered.map((d) => d.Age));
+          const xh = d3
+            .scaleLinear()
+            .domain([15, 45])
+            .range([m, w - m]);
+          const yh = d3
+            .scaleLinear()
+            .domain([0, d3.max(ageBins, (d) => d.length)])
+            .range([h - m, m]);
+          histSvg
+            .append('g')
+            .attr('transform', `translate(0,${h - m})`)
+            .call(d3.axisBottom(xh));
+          histSvg
+            .append('g')
+            .attr('transform', `translate(${m},0)`)
+            .call(d3.axisLeft(yh));
+          histSvg
+            .selectAll('rect')
+            .data(ageBins)
+            .join('rect')
+            .attr('x', (d) => xh(d.x0))
+            .attr('width', (d) => xh(d.x1) - xh(d.x0) - 1)
+            .attr('y', (d) => yh(d.length))
+            .attr('height', (d) => h - m - yh(d.length))
+            .attr('fill', '#2196f3')
+            .on('mouseover', (e, d) =>
+              showTip(
+                `Age ${d.x0}-${d.x1}<br>${d.length} players`,
+                e,
+              ),
+            )
+            .on('mouseout', hideTip);
+
+          // BUBBLE CHART
+          const bubbleSvg = d3
+            .select('#bubble')
+            .append('svg')
+            .attr('width', w)
+            .attr('height', h);
+          const xb = d3
+            .scaleLinear()
+            .domain(d3.extent(filtered, (d) => d.Potential))
+            .range([m, w - m]);
+          const yb = d3
+            .scaleLinear()
+            .domain([0, d3.max(filtered, (d) => d.Wage)])
+            .range([h - m, m]);
+          const r = d3
+            .scaleSqrt()
+            .domain([0, d3.max(filtered, (d) => d.Value)])
+            .range([2, 20]);
+          bubbleSvg
+            .append('g')
+            .attr('transform', `translate(0,${h - m})`)
+            .call(d3.axisBottom(xb));
+          bubbleSvg
+            .append('g')
+            .attr('transform', `translate(${m},0)`)
+            .call(d3.axisLeft(yb));
+          bubbleSvg
+            .selectAll('circle')
+            .data(filtered)
+            .join('circle')
+            .attr('cx', (d) => xb(d.Potential))
+            .attr('cy', (d) => yb(d.Wage))
+            .attr('r', (d) => r(d.Value))
+            .attr('fill', '#e91e63')
+            .attr('opacity', 0.6)
+            .on('mouseover', (e, d) =>
+              showTip(
+                `${d.Club}<br>Wage: €${d.Wage}<br>Value: €${d.Value}`,
+                e,
+              ),
+            )
+            .on('mouseout', hideTip);
+        }
+
+        function showTip(html, event) {
+          tooltip
+            .html(html)
+            .style('opacity', 1)
+            .style('left', event.pageX + 10 + 'px')
+            .style('top', event.pageY - 20 + 'px');
+        }
+
+        function hideTip() {
+          tooltip.style('opacity', 0);
+        }
+
+        d3.select('#nationalitySelect').on(
+          'change',
+          function () {
+            update(this.value);
+          },
+        );
+
+        update('All');
+      });
+    </script>
+  </body>
+</html>

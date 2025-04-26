@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Grouped Bar - Club and Nationality</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+
+<div id="clubBarChart" style="width:100%;height:700px;"></div>
+
+<script>
+  Plotly.d3.csv("https://raw.githubusercontent.com/KrishiJyothirmaiV/dataset/main/cleaned_player_data.csv", function(err, rows){
+    const grouped = {};
+
+    rows.forEach(row => {
+      const key = `${row.Nationality}-${row.Club}`;
+      if (!grouped[key]) {
+        grouped[key] = { sum: 0, count: 0 };
+      }
+      grouped[key].sum += +row.Overall;
+      grouped[key].count += 1;
+    });
+
+    const sortedData = Object.entries(grouped)
+      .map(([key, val]) => ({ key, avg: val.sum / val.count }))
+      .sort((a, b) => b.avg - a.avg)
+      .slice(0, 50);
+
+    const x = sortedData.map(d => d.key);
+    const y = sortedData.map(d => d.avg);
+
+    const trace = {
+      x: x,
+      y: y,
+      type: 'bar',
+      marker: { color: 'rgba(222,45,38,0.8)' }
+    };
+
+    const layout = {
+      title: 'Average Player Overall by Club and Country',
+      xaxis: { title: 'Club and Nationality', tickangle: -45 },
+      yaxis: { title: 'Average Overall' }
+    };
+
+    Plotly.newPlot('clubBarChart', [trace], layout);
+  });
+</script>
+
+</body>
+</html>

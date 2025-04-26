@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Top 15 Clubs by Overall</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+
+<div id="top15Bar" style="width:100%;height:600px;"></div>
+
+<script>
+  Plotly.d3.csv("https://raw.githubusercontent.com/KrishiJyothirmaiV/dataset/main/cleaned_player_data.csv", function(err, rows){
+    const clubAvg = {};
+
+    rows.forEach(row => {
+      if (!clubAvg[row.Club]) {
+        clubAvg[row.Club] = { sum: 0, count: 0 };
+      }
+      clubAvg[row.Club].sum += +row.Overall;
+      clubAvg[row.Club].count += 1;
+    });
+
+    const sortedClubs = Object.entries(clubAvg)
+      .map(([club, val]) => ({ club, avg: val.sum / val.count }))
+      .sort((a, b) => b.avg - a.avg)
+      .slice(0, 15);
+
+    const x = sortedClubs.map(d => d.avg);
+    const y = sortedClubs.map(d => d.club);
+
+    const trace = {
+      x: x,
+      y: y,
+      type: 'bar',
+      orientation: 'h',
+      marker: { color: 'rgba(50,171,96,0.7)' }
+    };
+
+    const layout = {
+      title: 'Top 15 Clubs by Average Player Overall Rating',
+      xaxis: { title: 'Average Overall' },
+      yaxis: { title: 'Club', automargin: true }
+    };
+
+    Plotly.newPlot('top15Bar', [trace], layout);
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scatter Plot - Age vs Overall</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+
+<div id="scatterPlot" style="width:100%;height:600px;"></div>
+
+<script>
+  Plotly.d3.csv("https://raw.githubusercontent.com/KrishiJyothirmaiV/dataset/main/cleaned_player_data.csv", function(err, rows){
+    function unpack(rows, key) {
+      return rows.map(row => row[key]);
+    }
+
+    const trace = {
+      x: unpack(rows, 'Age'),
+      y: unpack(rows, 'Overall'),
+      mode: 'markers',
+      marker: { color: 'rgb(93, 164, 214)', size: 8 },
+      text: unpack(rows, 'Nationality'),
+      type: 'scatter'
+    };
+
+    const layout = {
+      title: 'Age vs Overall Rating of Players',
+      xaxis: { title: 'Player Age' },
+      yaxis: { title: 'Overall Rating' }
+    };
+
+    Plotly.newPlot('scatterPlot', [trace], layout);
+  });
+</script>
+
+</body>
+</html>
